@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: botforge-postgres
+    environment:
+      POSTGRES_DB: botforge
+      POSTGRES_USER: botforge
+      POSTGRES_PASSWORD: botforge_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U botforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: botforge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: botforge-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/botforge
+      SPRING_DATASOURCE_USERNAME: botforge
+      SPRING_DATASOURCE_PASSWORD: botforge_secret
+      SPRING_REDIS_HOST: redis
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - upload_data:/app/uploads
+
+volumes:
+  postgres_data:
+  redis_data:
+  upload_data:

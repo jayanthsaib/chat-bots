@@ -1,0 +1,14 @@
+{
+  "name": "botforge-widget",
+  "version": "1.0.0",
+  "description": "Embeddable AI chat widget for BotForge",
+  "scripts": {
+    "build": "esbuild src/widget.ts --bundle --minify --outfile=../backend/src/main/resources/static/widget/botforge-widget.min.js --platform=browser --target=es2017",
+    "build:dev": "esbuild src/widget.ts --bundle --sourcemap --outfile=../backend/src/main/resources/static/widget/botforge-widget.js --platform=browser --target=es2017",
+    "watch": "esbuild src/widget.ts --bundle --sourcemap --outfile=../backend/src/main/resources/static/widget/botforge-widget.js --platform=browser --target=es2017 --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.2",
+    "typescript": "^5.4.3"
+  }
+}
