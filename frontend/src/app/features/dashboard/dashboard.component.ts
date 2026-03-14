@@ -16,7 +16,7 @@ import { Conversation, Lead } from '../../core/models/api.models';
     <div class="page-container">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
         <div>
-          <h2 style="margin:0;font-size:24px">Welcome back, {{ auth.currentUser()?.fullName?.split(' ')[0] }}!</h2>
+          <h2 style="margin:0;font-size:24px">Welcome back, {{ auth.currentUser()?.fullName?.split(' ')?.at(0) }}!</h2>
           <p style="color:#6b7280;margin:4px 0 0">Here's what's happening with your chatbots</p>
         </div>
         <button mat-raised-button color="primary" routerLink="/chatbots/new">

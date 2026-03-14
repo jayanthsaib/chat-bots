@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, AfterViewChecked, ElementRef, ViewChild, inject, NgZone, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -133,6 +133,39 @@ import { Chatbot, KnowledgeSource } from '../../../core/models/api.models';
           </div>
         </mat-tab>
 
+        <!-- Test Chat Tab -->
+        <mat-tab label="Test Chat">
+          <div style="padding:24px 0;max-width:600px">
+            <div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+              <!-- Messages -->
+              <div #chatBox style="height:400px;overflow-y:auto;padding:16px;background:#f9fafb;display:flex;flex-direction:column;gap:12px">
+                <div *ngIf="testMessages.length === 0" style="text-align:center;color:#9ca3af;margin-top:160px">
+                  Send a message to test your chatbot
+                </div>
+                <div *ngFor="let msg of testMessages"
+                     [style.align-self]="msg.role === 'user' ? 'flex-end' : 'flex-start'"
+                     [style.max-width]="'80%'">
+                  <div [style.background]="msg.role === 'user' ? '#4F46E5' : '#ffffff'"
+                       [style.color]="msg.role === 'user' ? '#fff' : '#111'"
+                       style="padding:10px 14px;border-radius:12px;font-size:14px;box-shadow:0 1px 3px rgba(0,0,0,0.1);white-space:pre-wrap">
+                    {{ msg.content }}
+                  </div>
+                </div>
+              </div>
+              <!-- Input -->
+              <div style="display:flex;gap:8px;padding:12px;border-top:1px solid #e5e7eb;background:#fff">
+                <input #chatInput matInput placeholder="Type a message..."
+                       [(ngModel)]="testInput"
+                       (keydown.enter)="sendTestMessage()"
+                       style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;font-size:14px;outline:none">
+                <button mat-raised-button color="primary" (click)="sendTestMessage()" [disabled]="!testInput || testLoading">
+                  <mat-icon>send</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </mat-tab>
+
         <!-- Settings Tab -->
         <mat-tab label="Settings">
           <div style="padding:24px 0;max-width:500px">
@@ -159,10 +192,14 @@ import { Chatbot, KnowledgeSource } from '../../../core/models/api.models';
     </div>
   `
 })
-export class ChatbotDetailComponent implements OnInit {
+export class ChatbotDetailComponent implements OnInit, AfterViewChecked {
   private api = inject(ApiService);
   private route = inject(ActivatedRoute);
   private snack = inject(MatSnackBar);
+  private zone = inject(NgZone);
+  private cdr = inject(ChangeDetectorRef);
+
+  @ViewChild('chatBox') chatBox!: ElementRef;
 
   chatbot: Chatbot | null = null;
   sources: KnowledgeSource[] = [];
@@ -171,6 +208,12 @@ export class ChatbotDetailComponent implements OnInit {
   textTitle = '';
   textContent = '';
   url = '';
+
+  testMessages: { role: 'user' | 'bot'; content: string }[] = [];
+  testInput = '';
+  testLoading = false;
+  private testSessionId = '';
+  private shouldScroll = false;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -248,5 +291,52 @@ export class ChatbotDetailComponent implements OnInit {
   copy(text: string): void {
     navigator.clipboard.writeText(text);
     this.snack.open('Copied!', '', { duration: 1500 });
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldScroll && this.chatBox) {
+      const el = this.chatBox.nativeElement;
+      el.scrollTop = el.scrollHeight;
+      this.shouldScroll = false;
+    }
+  }
+
+  sendTestMessage(): void {
+    if (!this.testInput.trim() || this.testLoading) return;
+    const message = this.testInput.trim();
+    this.testInput = '';
+    this.testMessages.push({ role: 'user', content: message });
+    this.testLoading = true;
+    this.shouldScroll = true;
+
+    const doSend = (sessionId: string) => {
+      const botMsg = { role: 'bot' as const, content: '' };
+      this.testMessages.push(botMsg);
+      this.api.sendChatMessage(sessionId, message).subscribe({
+        next: (token) => {
+          console.log('[component token]', token);
+          botMsg.content += token;
+          this.shouldScroll = true;
+          this.cdr.detectChanges();
+        },
+        error: () => this.zone.run(() => {
+          botMsg.content = botMsg.content || 'Error getting response.';
+          this.testLoading = false;
+        }),
+        complete: () => this.zone.run(() => { this.testLoading = false; })
+      });
+    };
+
+    if (this.testSessionId) {
+      doSend(this.testSessionId);
+    } else {
+      this.api.startChat(this.chatbot!.id).subscribe({
+        next: (r) => { this.testSessionId = r.data.sessionId; doSend(this.testSessionId); },
+        error: () => {
+          this.snack.open('Failed to start chat session', 'Close', { duration: 3000 });
+          this.testLoading = false;
+        }
+      });
+    }
   }
 }

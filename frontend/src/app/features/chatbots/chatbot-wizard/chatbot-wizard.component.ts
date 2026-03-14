@@ -9,13 +9,15 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
+import { NgIf } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../core/services/api.service';
 
 @Component({
   selector: 'app-chatbot-wizard',
   standalone: true,
-  imports: [ReactiveFormsModule, MatStepperModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatSelectModule, MatSlideToggleModule, MatSnackBarModule, MatIconModule],
+  imports: [ReactiveFormsModule, FormsModule, NgIf, MatStepperModule, MatFormFieldModule,
+    MatInputModule, MatButtonModule, MatSelectModule, MatSlideToggleModule, MatSnackBarModule, MatIconModule],
   template: `
     <div class="page-container" style="max-width:800px">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
@@ -155,9 +157,14 @@ export class ChatbotWizardComponent {
 
   create(): void {
     this.loading = true;
+    const bv = this.basicForm.value;
+    const pv = this.personalityForm.value;
     const data = {
-      ...this.basicForm.value,
-      ...this.personalityForm.value,
+      name: bv.name ?? undefined,
+      description: bv.description ?? undefined,
+      language: bv.language ?? undefined,
+      welcomeMessage: pv.welcomeMessage ?? undefined,
+      personality: pv.personality ?? undefined,
       collectLead: this.collectLead,
       leadTrigger: this.leadTrigger,
       widgetColor: this.widgetColor,

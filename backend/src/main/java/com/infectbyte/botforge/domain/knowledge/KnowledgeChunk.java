@@ -2,8 +2,7 @@ package com.infectbyte.botforge.domain.knowledge;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -40,7 +39,7 @@ public class KnowledgeChunk {
     private Integer tokenCount;
 
     @Column(name = "embedding", columnDefinition = "vector(1536)")
-    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Type(VectorType.class)
     private float[] embedding;
 
     @Column(name = "created_at", updatable = false)

@@ -3,19 +3,20 @@ package com.infectbyte.botforge.api.chat;
 import com.infectbyte.botforge.common.ApiResponse;
 import com.infectbyte.botforge.common.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Flux;
 
+import java.io.PrintWriter;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
+@Slf4j
 public class ChatController {
 
     private final ChatService chatService;
@@ -31,10 +32,29 @@ public class ChatController {
                 chatService.startConversation(tenantId, request, visitorIp, userAgent)));
     }
 
-    @PostMapping(value = "/message", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> sendMessage(@RequestBody ChatMessageRequest request) {
+    @PostMapping("/message")
+    public void sendMessage(@RequestBody ChatMessageRequest request,
+                            HttpServletResponse response) throws Exception {
         UUID tenantId = TenantContext.getTenantId();
-        return chatService.streamResponse(tenantId, request);
+
+        response.setContentType("text/event-stream");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-cache, no-transform");
+        response.setHeader("X-Accel-Buffering", "no");
+        response.flushBuffer();
+
+        PrintWriter writer = response.getWriter();
+        try {
+            for (String json : chatService.streamResponse(tenantId, request).toIterable()) {
+                writer.write("data:" + json + "\n\n");
+                writer.flush();
+                if (writer.checkError()) break;
+            }
+        } catch (Exception e) {
+            log.error("SSE streaming error", e);
+            writer.write("data:{\"type\":\"error\",\"message\":\"Stream error\"}\n\n");
+            writer.flush();
+        }
     }
 
     @GetMapping("/{sessionId}/history")

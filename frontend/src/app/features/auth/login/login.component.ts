@@ -7,13 +7,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { NgIf } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule,
-    MatInputModule, MatButtonModule, MatSnackBarModule, MatProgressSpinnerModule],
+    MatInputModule, MatButtonModule, MatSnackBarModule, MatProgressSpinnerModule, NgIf],
   template: `
     <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f9fafb;">
       <mat-card style="width:100%;max-width:420px;padding:32px;">

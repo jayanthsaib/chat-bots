@@ -72,25 +72,53 @@ public class OpenAIClient {
                 "temperature", 0.7
         );
 
-        return getClient()
-                .post()
-                .uri("/chat/completions")
-                .bodyValue(body)
-                .retrieve()
-                .bodyToFlux(String.class)
-                .filter(line -> line.startsWith("data: ") && !line.equals("data: [DONE]"))
-                .map(line -> line.substring(6))
-                .mapNotNull(json -> {
-                    try {
-                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                        com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(json);
-                        com.fasterxml.jackson.databind.JsonNode delta = node
-                                .path("choices").get(0).path("delta").path("content");
-                        return delta.isMissingNode() || delta.isNull() ? null : delta.asText();
-                    } catch (Exception e) {
-                        return null;
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        return reactor.core.publisher.Flux.<String>create(emitter -> {
+            try {
+                String jsonBody = mapper.writeValueAsString(body);
+                java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+                java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(properties.getBaseUrl() + "/chat/completions"))
+                        .header("Authorization", "Bearer " + properties.getApiKey())
+                        .header("Content-Type", "application/json")
+                        .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                        .build();
+
+                java.net.http.HttpResponse<java.io.InputStream> resp =
+                        client.send(req, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+
+                if (resp.statusCode() != 200) {
+                    emitter.error(new RuntimeException("OpenAI returned HTTP " + resp.statusCode()));
+                    return;
+                }
+
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(resp.body(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (!line.startsWith("data: ")) continue;
+                        if (line.equals("data: [DONE]")) break;
+                        String json = line.substring(6).trim();
+                        if (json.isEmpty()) continue;
+                        try {
+                            com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(json);
+                            com.fasterxml.jackson.databind.JsonNode contentNode = node
+                                    .path("choices").get(0).path("delta").path("content");
+                            if (!contentNode.isMissingNode() && !contentNode.isNull()) {
+                                String token = contentNode.asText();
+                                if (!token.isEmpty()) emitter.next(token);
+                            }
+                        } catch (Exception e) {
+                            log.warn("Failed to parse OpenAI chunk: {}", json);
+                        }
                     }
-                });
+                }
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.error(e);
+            }
+        }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
     }
 
     // DTOs

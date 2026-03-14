@@ -11,7 +11,9 @@ CREATE TABLE conversations (
     started_at      TIMESTAMP DEFAULT NOW(),
     last_message_at TIMESTAMP DEFAULT NOW(),
     resolved_at     TIMESTAMP,
-    metadata        JSONB
+    metadata        JSONB,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    updated_at      TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE messages (

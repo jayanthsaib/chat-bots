@@ -122,9 +122,9 @@ public class ChatService {
                 .doOnNext(token -> responseBuffer.get().append(token))
                 .map(token -> {
                     try {
-                        return "data: " + objectMapper.writeValueAsString(new TokenEvent(token)) + "\n\n";
+                        return objectMapper.writeValueAsString(new TokenEvent(token));
                     } catch (Exception e) {
-                        return "data: {\"token\":\"" + token + "\"}\n\n";
+                        return "{\"token\":\"" + token + "\"}";
                     }
                 })
                 .concatWith(Flux.defer(() -> {
@@ -143,16 +143,15 @@ public class ChatService {
                     messageRepository.save(assistantMsg);
 
                     try {
-                        String doneEvent = "data: " + objectMapper.writeValueAsString(
-                                new DoneEvent("done", shouldPromptLead)) + "\n\n";
-                        return Flux.just(doneEvent);
+                        return Flux.just(objectMapper.writeValueAsString(
+                                new DoneEvent("done", shouldPromptLead)));
                     } catch (Exception e) {
-                        return Flux.just("data: {\"type\":\"done\",\"lead_prompt\":false}\n\n");
+                        return Flux.just("{\"type\":\"done\",\"lead_prompt\":false}");
                     }
                 }))
                 .onErrorResume(e -> {
                     log.error("Error streaming chat response: {}", e.getMessage());
-                    return Flux.just("data: {\"type\":\"error\",\"message\":\"An error occurred\"}\n\n");
+                    return Flux.just("{\"type\":\"error\",\"message\":\"An error occurred\"}");
                 });
     }
 

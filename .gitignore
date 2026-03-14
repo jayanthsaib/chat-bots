@@ -36,7 +36,7 @@ yarn-error.log*
 
 # Angular
 dist/
-.angular/cache
+.angular/
 .sass-cache/
 /.cache
 /connect.lock
@@ -65,3 +65,6 @@ backend/uploads/
 
 # Docker
 docker-compose.override.yml
+
+# Claude Code workspace
+.claude/

@@ -7,6 +7,7 @@ import { ApiResponse, Chatbot, KnowledgeSource, Conversation, Lead, PageResponse
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private base = environment.apiUrl;
+  private streamBase = environment.streamUrl;
 
   constructor(private http: HttpClient) {}
 
@@ -88,5 +89,57 @@ export class ApiService {
 
   updateLead(id: string, updates: { status?: string; notes?: string }): Observable<ApiResponse<Lead>> {
     return this.http.put<ApiResponse<Lead>>(`${this.base}/leads/${id}`, updates);
+  }
+
+  // Chat
+  startChat(botId: string): Observable<ApiResponse<{ sessionId: string }>> {
+    return this.http.post<ApiResponse<{ sessionId: string }>>(`${this.base}/chat/start`, { botId, channel: 'test' });
+  }
+
+  sendChatMessage(sessionId: string, message: string): Observable<string> {
+    return new Observable(observer => {
+      const controller = new AbortController();
+      (async () => {
+        try {
+          const res = await fetch(`${this.streamBase}/chat/message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('bf_access_token') || ''}` },
+            body: JSON.stringify({ sessionId, message, channel: 'test' }),
+            signal: controller.signal
+          });
+          if (!res.ok || !res.body) { observer.error(new Error(`HTTP ${res.status}`)); return; }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';  // keep last incomplete line in buffer
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed) continue;
+              console.log('[SSE raw line]', JSON.stringify(trimmed));
+              let jsonStr = trimmed;
+              if (jsonStr.startsWith('data:')) jsonStr = jsonStr.slice(5).trim();
+              if (!jsonStr) continue;
+              try {
+                const parsed = JSON.parse(jsonStr);
+                console.log('[SSE parsed]', parsed);
+                if (parsed.token !== undefined) observer.next(parsed.token);
+                else if (parsed.type === 'done') { observer.complete(); return; }
+              } catch (e) {
+                console.warn('[SSE parse error]', jsonStr, e);
+              }
+            }
+          }
+          observer.complete();
+        } catch (e: any) {
+          if (!controller.signal.aborted) observer.error(e);
+        }
+      })();
+      return () => controller.abort();
+    });
   }
 }
