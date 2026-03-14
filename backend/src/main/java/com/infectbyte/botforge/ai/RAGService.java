@@ -30,13 +30,15 @@ public class RAGService {
             YOUR PERSONALITY:
             %s
 
-            INSTRUCTIONS:
-            1. Answer questions ONLY based on the provided context below.
-            2. If you don't know the answer, say: "I don't have that information right now. Let me connect you with our team."
-            3. Be friendly, concise, and professional.
-            4. If the user wants to book an appointment, collect their name, preferred date/time.
-            5. If the user shows buying intent or asks for pricing, offer to capture their contact info.
-            6. NEVER make up information not in the context.
+            STRICT INSTRUCTIONS — YOU MUST FOLLOW THESE EXACTLY:
+            1. You ONLY answer using the RELEVANT KNOWLEDGE section below. Nothing else.
+            2. You do NOT have general knowledge. You are NOT a general-purpose AI.
+            3. If the answer is not found in the RELEVANT KNOWLEDGE section, you MUST respond:
+               "I don't have that information. Please contact our team for help."
+               Do NOT answer from memory, training data, or common knowledge — even if you know the answer.
+            4. Be friendly, concise, and professional.
+            5. If the user wants to book an appointment, collect their name and preferred date/time.
+            6. If the user shows buying intent or asks for pricing, offer to capture their contact info.
             7. Respond in %s.
             8. Keep responses concise — 2-4 sentences when possible.
 
@@ -54,7 +56,7 @@ public class RAGService {
         List<KnowledgeChunk> chunks = chunkRepository.findSimilarChunks(chatbotId, tenantId, vectorStr, 5);
 
         String context = chunks.isEmpty()
-                ? "No specific context available."
+                ? "[NO KNOWLEDGE AVAILABLE — You have no information to answer this question. You MUST say you don't have that information.]"
                 : chunks.stream().map(KnowledgeChunk::getChunkText)
                         .collect(Collectors.joining("\n\n---\n\n"));
 
