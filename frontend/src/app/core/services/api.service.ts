@@ -91,6 +91,27 @@ export class ApiService {
     return this.http.put<ApiResponse<Lead>>(`${this.base}/leads/${id}`, updates);
   }
 
+  // Plans & Payments
+  getPlans(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.base}/plans`);
+  }
+
+  getSubscriptionStatus(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.base}/payments/subscription`);
+  }
+
+  getUsage(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.base}/payments/usage`);
+  }
+
+  subscribe(planName: string): Observable<ApiResponse<{ subscriptionId: string; keyId: string }>> {
+    return this.http.post<ApiResponse<any>>(`${this.base}/payments/subscribe`, { planName });
+  }
+
+  cancelSubscription(): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${this.base}/payments/cancel`, {});
+  }
+
   // Chat
   startChat(botId: string): Observable<ApiResponse<{ sessionId: string }>> {
     return this.http.post<ApiResponse<{ sessionId: string }>>(`${this.base}/chat/start`, { botId, channel: 'test' });

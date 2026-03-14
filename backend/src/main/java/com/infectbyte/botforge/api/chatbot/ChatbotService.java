@@ -1,5 +1,6 @@
 package com.infectbyte.botforge.api.chatbot;
 
+import com.infectbyte.botforge.api.payment.UsageLimitService;
 import com.infectbyte.botforge.common.ResourceNotFoundException;
 import com.infectbyte.botforge.domain.apikey.ApiKey;
 import com.infectbyte.botforge.domain.apikey.ApiKeyRepository;
@@ -23,6 +24,7 @@ public class ChatbotService {
     private final ChatbotRepository chatbotRepository;
     private final ApiKeyRepository apiKeyRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UsageLimitService usageLimitService;
 
     @Value("${server.port:8080}")
     private String serverPort;
@@ -35,6 +37,7 @@ public class ChatbotService {
 
     @Transactional
     public ChatbotDto createChatbot(UUID tenantId, CreateChatbotRequest request) {
+        usageLimitService.checkBotLimit(tenantId);
         Chatbot chatbot = Chatbot.builder()
                 .name(request.name())
                 .description(request.description())

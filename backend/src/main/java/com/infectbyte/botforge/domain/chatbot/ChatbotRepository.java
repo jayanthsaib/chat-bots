@@ -12,4 +12,5 @@ public interface ChatbotRepository extends JpaRepository<Chatbot, UUID> {
     List<Chatbot> findAllByTenantId(UUID tenantId);
     Optional<Chatbot> findByIdAndTenantId(UUID id, UUID tenantId);
     boolean existsByIdAndTenantId(UUID id, UUID tenantId);
+    long countByTenantId(UUID tenantId);
 }

@@ -2,6 +2,7 @@ package com.infectbyte.botforge.api.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infectbyte.botforge.ai.OpenAIClient;
+import com.infectbyte.botforge.api.payment.UsageLimitService;
 import com.infectbyte.botforge.ai.RAGService;
 import com.infectbyte.botforge.common.ResourceNotFoundException;
 import com.infectbyte.botforge.domain.apikey.ApiKey;
@@ -40,6 +41,7 @@ public class ChatService {
     private final RAGService ragService;
     private final OpenAIClient openAIClient;
     private final ObjectMapper objectMapper;
+    private final UsageLimitService usageLimitService;
 
     @Transactional
     public StartChatResponse startConversation(UUID tenantId, StartChatRequest request,
@@ -76,6 +78,9 @@ public class ChatService {
         UUID chatbotId = conversation.getChatbotId();
         Chatbot chatbot = chatbotRepository.findById(chatbotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chatbot", chatbotId));
+
+        // Check message limit
+        usageLimitService.checkAndIncrementMessageCount(tenantId);
 
         // Sanitize input
         String userMessage = sanitizeInput(request.message());

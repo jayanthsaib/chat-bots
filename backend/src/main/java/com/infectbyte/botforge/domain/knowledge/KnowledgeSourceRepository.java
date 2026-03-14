@@ -12,4 +12,6 @@ public interface KnowledgeSourceRepository extends JpaRepository<KnowledgeSource
     List<KnowledgeSource> findAllByChatbotIdAndTenantId(UUID chatbotId, UUID tenantId);
     Optional<KnowledgeSource> findByIdAndTenantId(UUID id, UUID tenantId);
     void deleteByIdAndTenantId(UUID id, UUID tenantId);
+    long countByChatbotId(UUID chatbotId);
+    long countByTenantId(UUID tenantId);
 }
