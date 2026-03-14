@@ -74,14 +74,14 @@ public class TextExtractor {
     }
 
     public String crawlWebsite(String startUrl, int maxPages) throws IOException {
-        URI base;
+        String baseOrigin;
         try {
-            base = new URI(startUrl).normalize();
+            URI base = new URI(startUrl).normalize();
+            baseOrigin = base.getScheme() + "://" + base.getHost()
+                    + (base.getPort() != -1 ? ":" + base.getPort() : "");
         } catch (Exception e) {
             throw new IOException("Invalid URL: " + startUrl);
         }
-        String baseOrigin = base.getScheme() + "://" + base.getHost()
-                + (base.getPort() != -1 ? ":" + base.getPort() : "");
 
         Set<String> visited = new LinkedHashSet<>();
         Queue<String> queue = new ArrayDeque<>();
@@ -90,47 +90,62 @@ public class TextExtractor {
         StringBuilder combined = new StringBuilder();
         int pages = 0;
 
-        while (!queue.isEmpty() && pages < maxPages) {
-            String url = queue.poll();
-            if (visited.contains(url)) continue;
-            visited.add(url);
+        // Single Playwright browser session — renders JS so SPA links are visible
+        try (Playwright playwright = Playwright.create()) {
+            Browser browser = playwright.chromium().launch(
+                    new BrowserType.LaunchOptions().setHeadless(true));
+            Page page = browser.newPage();
 
-            log.info("Crawling page {}/{}: {}", pages + 1, maxPages, url);
-            try {
-                String pageText = extractFromUrl(url);
-                if (pageText != null && !pageText.isBlank()) {
-                    combined.append("=== ").append(url).append(" ===\n")
-                            .append(pageText).append("\n\n");
-                    pages++;
-                }
-                // Discover internal links from this page
-                if (pages < maxPages) {
-                    Document doc = Jsoup.connect(url)
-                            .userAgent("Mozilla/5.0 BotForge-Crawler/1.0")
-                            .timeout(10_000)
-                            .get();
-                    for (Element link : doc.select("a[href]")) {
-                        String href = link.absUrl("href");
-                        if (href.isBlank()) continue;
-                        try {
-                            URI linkUri = new URI(href).normalize();
-                            String linkOrigin = linkUri.getScheme() + "://" + linkUri.getHost()
-                                    + (linkUri.getPort() != -1 ? ":" + linkUri.getPort() : "");
-                            if (!linkOrigin.equals(baseOrigin)) continue;
-                            // Strip fragment and query to avoid duplicates
-                            String clean = linkUri.getScheme() + "://" + linkUri.getHost()
-                                    + (linkUri.getPort() != -1 ? ":" + linkUri.getPort() : "")
-                                    + linkUri.getPath();
-                            if (!clean.isBlank() && !visited.contains(clean)
-                                    && !clean.matches(".*\\.(jpg|jpeg|png|gif|svg|ico|css|js|pdf|zip|xml|json)$")) {
-                                queue.add(clean);
-                            }
-                        } catch (Exception ignored) {}
+            while (!queue.isEmpty() && pages < maxPages) {
+                String url = queue.poll();
+                if (visited.contains(url)) continue;
+                visited.add(url);
+
+                log.info("Crawling page {}/{}: {}", pages + 1, maxPages, url);
+                try {
+                    page.navigate(url, new Page.NavigateOptions().setTimeout(20_000));
+                    page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE,
+                            new Page.WaitForLoadStateOptions().setTimeout(15_000));
+
+                    // Extract content from fully-rendered DOM
+                    String html = page.content();
+                    Document doc = Jsoup.parse(html);
+                    doc.select("nav, header, footer, script, style, [class*=nav], [class*=menu]").remove();
+                    String text = extractStructuredText(doc);
+
+                    if (text != null && !text.isBlank()) {
+                        combined.append("=== ").append(url).append(" ===\n")
+                                .append(text).append("\n\n");
+                        pages++;
                     }
+
+                    // Discover links from fully-rendered DOM (catches SPA router links)
+                    if (pages < maxPages) {
+                        // Re-parse full HTML (before nav removal) to get links
+                        Document fullDoc = Jsoup.parse(page.content());
+                        for (Element link : fullDoc.select("a[href]")) {
+                            String href = link.attr("abs:href");
+                            if (href.isBlank()) href = link.attr("href");
+                            if (href.isBlank() || href.startsWith("mailto:") || href.startsWith("tel:")) continue;
+                            try {
+                                // Resolve relative URLs against current page
+                                URI linkUri = new URI(url).resolve(href).normalize();
+                                String linkOrigin = linkUri.getScheme() + "://" + linkUri.getHost()
+                                        + (linkUri.getPort() != -1 ? ":" + linkUri.getPort() : "");
+                                if (!linkOrigin.equals(baseOrigin)) continue;
+                                String clean = linkOrigin + linkUri.getPath();
+                                if (!clean.isBlank() && !visited.contains(clean)
+                                        && !clean.matches(".*\\.(jpg|jpeg|png|gif|svg|ico|css|js|pdf|zip|xml|json|woff|woff2|ttf)$")) {
+                                    queue.add(clean);
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to crawl {}: {}", url, e.getMessage());
                 }
-            } catch (Exception e) {
-                log.warn("Failed to crawl {}: {}", url, e.getMessage());
             }
+            browser.close();
         }
 
         log.info("Crawled {} pages from {}", pages, startUrl);
