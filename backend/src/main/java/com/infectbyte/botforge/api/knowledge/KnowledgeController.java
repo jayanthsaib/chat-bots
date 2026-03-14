@@ -120,6 +120,10 @@ public class KnowledgeController {
         validateChatbot(chatbotId, tenantId);
 
         String url = body.get("url");
+        int maxPages = 1;
+        try { maxPages = Math.min(50, Math.max(1, Integer.parseInt(body.getOrDefault("maxPages", "1")))); }
+        catch (NumberFormatException ignored) {}
+
         KnowledgeSource source = KnowledgeSource.builder()
                 .chatbotId(chatbotId)
                 .sourceType("website_url")
@@ -129,8 +133,9 @@ public class KnowledgeController {
         source.setTenantId(tenantId);
         source = sourceRepository.save(source);
 
-        ingestionPipeline.ingestUrl(source);
-        return ResponseEntity.ok(ApiResponse.ok(toDto(source), "URL submitted for indexing"));
+        ingestionPipeline.ingestUrl(source, maxPages);
+        String msg = maxPages > 1 ? "Crawling up to " + maxPages + " pages..." : "URL submitted for indexing";
+        return ResponseEntity.ok(ApiResponse.ok(toDto(source), msg));
     }
 
     @DeleteMapping("/{sourceId}")

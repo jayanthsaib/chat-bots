@@ -53,8 +53,8 @@ export class ApiService {
     return this.http.post<ApiResponse<KnowledgeSource>>(`${this.base}/chatbots/${chatbotId}/knowledge/faq`, { title, faqs });
   }
 
-  addUrlKnowledge(chatbotId: string, url: string, title?: string): Observable<ApiResponse<KnowledgeSource>> {
-    return this.http.post<ApiResponse<KnowledgeSource>>(`${this.base}/chatbots/${chatbotId}/knowledge/url`, { url, title });
+  addUrlKnowledge(chatbotId: string, url: string, title?: string, maxPages = 1): Observable<ApiResponse<KnowledgeSource>> {
+    return this.http.post<ApiResponse<KnowledgeSource>>(`${this.base}/chatbots/${chatbotId}/knowledge/url`, { url, title, maxPages });
   }
 
   uploadFile(chatbotId: string, file: File): Observable<ApiResponse<KnowledgeSource>> {

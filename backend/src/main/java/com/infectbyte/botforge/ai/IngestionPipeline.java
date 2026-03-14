@@ -65,13 +65,15 @@ public class IngestionPipeline {
     }
 
     @Async
-    public void ingestUrl(KnowledgeSource source) {
+    public void ingestUrl(KnowledgeSource source, int maxPages) {
         updateStatus(source, "processing");
         try {
-            String text = textExtractor.extractFromUrl(source.getWebsiteUrl());
+            String text = maxPages > 1
+                    ? textExtractor.crawlWebsite(source.getWebsiteUrl(), maxPages)
+                    : textExtractor.extractFromUrl(source.getWebsiteUrl());
             embeddingService.embedAndStore(source.getId(), source.getChatbotId(), source.getTenantId(),
                     textExtractor.sanitizeText(text));
-            log.info("Ingested URL source {}", source.getId());
+            log.info("Ingested URL source {} ({} max pages)", source.getId(), maxPages);
         } catch (Exception e) {
             log.error("Failed to ingest URL source {}: {}", source.getId(), e.getMessage());
             updateStatus(source, "failed");

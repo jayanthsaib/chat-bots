@@ -7,10 +7,13 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.util.*;
 
 @Component
 @Slf4j
@@ -68,6 +71,70 @@ public class TextExtractor {
             log.error("Playwright failed for {}: {}", url, e.getMessage());
             throw new RuntimeException("Failed to extract content from URL: " + e.getMessage());
         }
+    }
+
+    public String crawlWebsite(String startUrl, int maxPages) throws IOException {
+        URI base;
+        try {
+            base = new URI(startUrl).normalize();
+        } catch (Exception e) {
+            throw new IOException("Invalid URL: " + startUrl);
+        }
+        String baseOrigin = base.getScheme() + "://" + base.getHost()
+                + (base.getPort() != -1 ? ":" + base.getPort() : "");
+
+        Set<String> visited = new LinkedHashSet<>();
+        Queue<String> queue = new ArrayDeque<>();
+        queue.add(startUrl);
+
+        StringBuilder combined = new StringBuilder();
+        int pages = 0;
+
+        while (!queue.isEmpty() && pages < maxPages) {
+            String url = queue.poll();
+            if (visited.contains(url)) continue;
+            visited.add(url);
+
+            log.info("Crawling page {}/{}: {}", pages + 1, maxPages, url);
+            try {
+                String pageText = extractFromUrl(url);
+                if (pageText != null && !pageText.isBlank()) {
+                    combined.append("=== ").append(url).append(" ===\n")
+                            .append(pageText).append("\n\n");
+                    pages++;
+                }
+                // Discover internal links from this page
+                if (pages < maxPages) {
+                    Document doc = Jsoup.connect(url)
+                            .userAgent("Mozilla/5.0 BotForge-Crawler/1.0")
+                            .timeout(10_000)
+                            .get();
+                    for (Element link : doc.select("a[href]")) {
+                        String href = link.absUrl("href");
+                        if (href.isBlank()) continue;
+                        try {
+                            URI linkUri = new URI(href).normalize();
+                            String linkOrigin = linkUri.getScheme() + "://" + linkUri.getHost()
+                                    + (linkUri.getPort() != -1 ? ":" + linkUri.getPort() : "");
+                            if (!linkOrigin.equals(baseOrigin)) continue;
+                            // Strip fragment and query to avoid duplicates
+                            String clean = linkUri.getScheme() + "://" + linkUri.getHost()
+                                    + (linkUri.getPort() != -1 ? ":" + linkUri.getPort() : "")
+                                    + linkUri.getPath();
+                            if (!clean.isBlank() && !visited.contains(clean)
+                                    && !clean.matches(".*\\.(jpg|jpeg|png|gif|svg|ico|css|js|pdf|zip|xml|json)$")) {
+                                queue.add(clean);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to crawl {}: {}", url, e.getMessage());
+            }
+        }
+
+        log.info("Crawled {} pages from {}", pages, startUrl);
+        return combined.toString();
     }
 
     public String sanitizeText(String text) {

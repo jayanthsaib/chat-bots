@@ -58,12 +58,23 @@ import { Chatbot, KnowledgeSource } from '../../../core/models/api.models';
                 <mat-card-content>
                   <mat-form-field appearance="outline" style="width:100%;margin-top:16px">
                     <mat-label>Website URL</mat-label>
-                    <input matInput [(ngModel)]="url" placeholder="https://yourwebsite.com/about">
+                    <input matInput [(ngModel)]="url" placeholder="https://yourwebsite.com">
                   </mat-form-field>
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <mat-form-field appearance="outline" style="width:100px">
+                      <mat-label>Pages</mat-label>
+                      <input matInput type="number" [(ngModel)]="crawlPages" min="1" max="50">
+                      <mat-hint>1–50</mat-hint>
+                    </mat-form-field>
+                    <span style="font-size:12px;color:#6b7280;flex:1">
+                      {{ crawlPages > 1 ? 'Crawls up to ' + crawlPages + ' pages on same domain' : 'Single page only' }}
+                    </span>
+                  </div>
                 </mat-card-content>
                 <mat-card-actions>
                   <button mat-raised-button color="primary" (click)="addUrl()" [disabled]="!url">
-                    <mat-icon>language</mat-icon> Scrape URL
+                    <mat-icon>{{ crawlPages > 1 ? 'travel_explore' : 'language' }}</mat-icon>
+                    {{ crawlPages > 1 ? 'Crawl Website' : 'Scrape URL' }}
                   </button>
                 </mat-card-actions>
               </mat-card>
@@ -208,6 +219,7 @@ export class ChatbotDetailComponent implements OnInit, AfterViewChecked {
   textTitle = '';
   textContent = '';
   url = '';
+  crawlPages = 1;
 
   testMessages: { role: 'user' | 'bot'; content: string }[] = [];
   testInput = '';
@@ -251,8 +263,10 @@ export class ChatbotDetailComponent implements OnInit, AfterViewChecked {
   }
 
   addUrl(): void {
-    this.api.addUrlKnowledge(this.chatbot!.id, this.url).subscribe({
-      next: () => { this.url = ''; this.loadSources(); this.snack.open('URL scraping started', '', { duration: 2000 }); },
+    const pages = Math.min(50, Math.max(1, this.crawlPages || 1));
+    const msg = pages > 1 ? `Crawling up to ${pages} pages...` : 'Scraping page...';
+    this.api.addUrlKnowledge(this.chatbot!.id, this.url, undefined, pages).subscribe({
+      next: () => { this.url = ''; this.loadSources(); this.snack.open(msg, '', { duration: 3000 }); },
       error: () => this.snack.open('Failed to add URL', 'Close', { duration: 3000 })
     });
   }
