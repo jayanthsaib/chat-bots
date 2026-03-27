@@ -35,16 +35,16 @@ public class RAGService {
             %s
 
             STRICT INSTRUCTIONS — YOU MUST FOLLOW THESE EXACTLY:
-            1. For greetings, small talk, or conversational messages (hi, hello, thanks, bye, how are you etc.) — respond naturally and warmly.
+            1. GREETINGS FIRST: If the user sends any greeting or small talk in ANY language (hi, hello, hey, thanks, bye, namaste, namsthe, vanakkam, salaam, hola, bonjour, or any informal opener) — ALWAYS respond warmly and naturally. NEVER say "I don't have that information" for a greeting. This rule overrides everything else.
             2. For any factual question about the business, products, services, or specific information — answer using the RELEVANT KNOWLEDGE section below.
             3. For vague follow-ups like "details?", "more?", "explain" — use the conversation history to understand what the user is asking about and answer from the knowledge.
-            4. If the answer is truly NOT found anywhere in the RELEVANT KNOWLEDGE section, respond:
+            4. If the answer is truly NOT found anywhere in the RELEVANT KNOWLEDGE section, respond in the user's language:
                "I don't have that information. Please contact our team for help."
                Do NOT use your general training knowledge to answer factual questions.
             5. Be friendly, concise, and professional.
             6. If the user wants to book an appointment, collect their name and preferred date/time.
             7. If the user shows buying intent or asks for pricing, offer to capture their contact info.
-            8. Language: Detect the language the user is writing in and ALWAYS respond in that same language. If the user writes in Hindi, respond in Hindi. If in Arabic, respond in Arabic. If in English, respond in English. Never switch languages unless the user does.
+            8. Language: Detect the language the user is writing in and ALWAYS respond in that same language. Telugu → Telugu. Hindi → Hindi. Arabic → Arabic. English → English. Never switch languages unless the user does.
             9. Keep responses concise — 2-4 sentences when possible.
 
             RELEVANT KNOWLEDGE:
@@ -56,8 +56,13 @@ public class RAGService {
 
     public RAGResult buildPrompt(UUID chatbotId, UUID tenantId, String userMessage,
                                   Chatbot chatbot) {
+        // For cross-language queries: extract ASCII portion for semantic embedding.
+        // "ei company cto evaru?" → "ei company cto evaru" (better vector match against English KB)
+        String asciiPart = userMessage.toLowerCase().replaceAll("[^a-z0-9 ]", " ").trim();
+        String semanticQuery = asciiPart.length() >= 3 ? asciiPart : userMessage;
+
         // Embed user query
-        float[] queryVector = embeddingService.embedQuery(userMessage);
+        float[] queryVector = embeddingService.embedQuery(semanticQuery);
         String vectorStr = toVectorString(queryVector);
 
         // Semantic search: top 10 above threshold (leaves room for keyword supplements)
@@ -66,12 +71,14 @@ public class RAGService {
         log.info("RAG: found {} semantic chunks (threshold={}) for query: {}", chunks.size(), SIMILARITY_THRESHOLD, userMessage);
 
         // Keyword supplement: always add keyword-matched chunks not already in results
+        // Use ASCII-only words to avoid non-Latin words flooding the budget
         java.util.Set<String> stopWords = java.util.Set.of(
             "who", "what", "where", "when", "how", "why", "which", "the", "and",
             "for", "are", "you", "tell", "can", "give", "does", "did", "has",
-            "have", "its", "this", "that", "with", "from", "about", "your"
+            "have", "its", "this", "that", "with", "from", "about", "your",
+            "company", "please", "want", "need", "get", "let", "know", "any"
         );
-        String[] words = userMessage.toLowerCase().replaceAll("[^a-z0-9 ]", " ").trim().split("\\s+");
+        String[] words = asciiPart.trim().split("\\s+");
         java.util.Set<UUID> seen = new java.util.HashSet<>();
         chunks.forEach(c -> seen.add(c.getId()));
         for (String word : words) {
@@ -101,7 +108,7 @@ public class RAGService {
         String context = hasKnowledge
                 ? chunks.stream().map(KnowledgeChunk::getChunkText)
                         .collect(Collectors.joining("\n\n---\n\n"))
-                : "[NO KNOWLEDGE AVAILABLE — You have no information to answer this question. You MUST say you don't have that information.]";
+                : "[NO KNOWLEDGE AVAILABLE — For factual questions about the business, say you don't have that information. For greetings or small talk, respond naturally and warmly.]";
 
         // Build source citations from unique source IDs
         List<SourceCitation> sources = hasKnowledge
