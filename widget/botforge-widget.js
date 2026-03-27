@@ -9,6 +9,8 @@
   var PROACTIVE_DELAY = typeof config.proactiveDelay === 'number' ? config.proactiveDelay : 0;
   var QUICK_REPLIES = Array.isArray(config.quickReplies) ? config.quickReplies : [];
   var BOT_NAME = config.botName || 'Chat with us';
+  var EXIT_MESSAGE = config.exitMessage || "Wait! Got any questions before you go? I'm here to help. 👋";
+  var VISITOR_KEY = 'bf_visitor_' + BOT_ID;
 
   if (!API_KEY || !BOT_ID) {
     console.warn('[BotForge] Missing apiKey or botId in window.BotForgeConfig');
@@ -66,6 +68,18 @@
 
   function clearSession() {
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  }
+
+  // ── Visitor profile (persists across sessions) ───────────────────────────────
+  function saveVisitor(name, email) {
+    try { localStorage.setItem(VISITOR_KEY, JSON.stringify({ name: name, email: email })); } catch (e) {}
+  }
+
+  function loadVisitor() {
+    try {
+      var raw = localStorage.getItem(VISITOR_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
   }
 
   // ── Styles ───────────────────────────────────────────────────────────────────
@@ -164,6 +178,7 @@
   var isOpen = false;
   var initialized = false;
   var chatHistory = [];
+  var visitor = loadVisitor();
 
   // ── Session restore ───────────────────────────────────────────────────────────
   var savedSession = loadSession();
@@ -202,10 +217,12 @@
   // ── Start session ────────────────────────────────────────────────────────────
   function startSession() {
     addTyping();
+    var body = { botId: BOT_ID, channel: 'widget' };
+    if (visitor) { body.visitorName = visitor.name; body.visitorEmail = visitor.email; }
     fetch(BASE_URL + '/api/v1/chat/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
-      body: JSON.stringify({ botId: BOT_ID, channel: 'widget' })
+      body: JSON.stringify(body)
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -213,7 +230,12 @@
         if (data.data) {
           sessionId = data.data.sessionId;
           if (data.data.botName) { headName.textContent = data.data.botName; BOT_NAME = data.data.botName; }
-          var greeting = data.data.welcomeMessage || 'Hi! How can I help you today?';
+          var greeting;
+          if (visitor && visitor.name) {
+            greeting = 'Welcome back, ' + visitor.name + '! 👋 How can I help you today?';
+          } else {
+            greeting = data.data.welcomeMessage || 'Hi! How can I help you today?';
+          }
           addMsg(greeting, 'bot');
           chatHistory.push({ role: 'bot', content: greeting });
           saveSession(sessionId, chatHistory);
@@ -222,7 +244,7 @@
       })
       .catch(function () {
         removeTyping();
-        var greeting = 'Hi! How can I help you today?';
+        var greeting = visitor && visitor.name ? 'Welcome back, ' + visitor.name + '! 👋 How can I help?' : 'Hi! How can I help you today?';
         addMsg(greeting, 'bot');
         showQuickReplies();
       });
@@ -327,8 +349,11 @@
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
       body: JSON.stringify({ fullName: name, email: email })
     }).catch(function () {});
+    // Save visitor profile so next visit shows returning greeting
+    if (name || email) saveVisitor(name, email);
+    visitor = { name: name, email: email };
     leadForm.style.display = 'none';
-    addMsg('Thanks! We\'ll be in touch soon.', 'bot');
+    addMsg('Thanks ' + (name ? name : '') + '! We\'ll be in touch soon. 😊', 'bot');
   });
 
   leadSkipBtn.addEventListener('click', function () {
@@ -398,4 +423,22 @@
       if (!isOpen) toggle();
     }, PROACTIVE_DELAY * 1000);
   }
+
+  // ── Exit intent detection ─────────────────────────────────────────────────────
+  var exitTriggered = false;
+  document.addEventListener('mouseleave', function (e) {
+    // Only trigger when mouse moves toward top of page (exiting browser tab)
+    if (e.clientY > 20) return;
+    if (exitTriggered || isOpen) return;
+    exitTriggered = true;
+    toggle();
+    // Wait for chat to open and session to init, then show exit message
+    setTimeout(function () {
+      if (initialized && sessionId) {
+        addMsg(EXIT_MESSAGE, 'bot');
+        chatHistory.push({ role: 'bot', content: EXIT_MESSAGE });
+        saveSession(sessionId, chatHistory);
+      }
+    }, 800);
+  });
 })();

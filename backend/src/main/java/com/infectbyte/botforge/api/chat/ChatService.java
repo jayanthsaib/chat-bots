@@ -102,8 +102,24 @@ public class ChatService {
         List<Message> history = messageRepository.findTop10ByConversationIdOrderByCreatedAtDesc(conversation.getId());
         java.util.Collections.reverse(history);
 
-        // Build RAG prompt
-        RAGService.RAGResult ragResult = ragService.buildPrompt(chatbotId, tenantId, userMessage, chatbot);
+        // Build RAG prompt — for short/vague messages, enrich query with recent context
+        String ragQuery = userMessage;
+        if (userMessage.trim().split("\\s+").length <= 2) {
+            // Find last user message in history for context
+            history.stream()
+                    .filter(m -> "user".equals(m.getRole()))
+                    .reduce((a, b) -> b) // last user message
+                    .map(Message::getContent)
+                    .filter(prev -> !prev.equalsIgnoreCase(userMessage))
+                    .ifPresent(prev -> {});
+            String lastUserMsg = history.stream()
+                    .filter(m -> "user".equals(m.getRole()) && !m.getContent().equalsIgnoreCase(userMessage))
+                    .reduce((a, b) -> b)
+                    .map(Message::getContent)
+                    .orElse("");
+            if (!lastUserMsg.isBlank()) ragQuery = lastUserMsg + " " + userMessage;
+        }
+        RAGService.RAGResult ragResult = ragService.buildPrompt(chatbotId, tenantId, ragQuery, chatbot);
         String systemPrompt = ragResult.systemPrompt();
         boolean hasKnowledge = ragResult.hasKnowledge();
         List<RAGService.SourceCitation> citations = ragResult.sources();

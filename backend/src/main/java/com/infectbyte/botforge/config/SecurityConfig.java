@@ -51,13 +51,21 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("https://botforge.dravex.in", "http://localhost:4200"));
+        config.setAllowedOriginPatterns(List.of("https://botforge.dravex.in", "https://wexlai.com", "https://www.wexlai.com", "http://localhost:4200"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(false);
 
+        // Chat endpoints are embedded on customer websites — allow any origin
+        CorsConfiguration widgetConfig = new CorsConfiguration();
+        widgetConfig.setAllowedOriginPatterns(List.of("*"));
+        widgetConfig.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        widgetConfig.setAllowedHeaders(List.of("*"));
+        widgetConfig.setAllowCredentials(false);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/v1/chat/**", widgetConfig);
         source.registerCorsConfiguration("/**", config);
         return source;
     }

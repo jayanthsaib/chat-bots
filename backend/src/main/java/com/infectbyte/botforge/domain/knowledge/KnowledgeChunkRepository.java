@@ -39,6 +39,20 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
             @Param("threshold") double threshold
     );
 
+    @Query(value = """
+            SELECT * FROM knowledge_chunks
+            WHERE chatbot_id = :chatbotId AND tenant_id = :tenantId
+              AND chunk_text ILIKE :keyword
+            ORDER BY chunk_index ASC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<KnowledgeChunk> findByKeyword(
+            @Param("chatbotId") UUID chatbotId,
+            @Param("tenantId") UUID tenantId,
+            @Param("keyword") String keyword,
+            @Param("limit") int limit
+    );
+
     void deleteBySourceId(UUID sourceId);
 
     long countByChatbotIdAndTenantId(UUID chatbotId, UUID tenantId);

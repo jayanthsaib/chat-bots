@@ -44,13 +44,18 @@ public class TextExtractor {
     }
 
     private String extractStructuredText(Document doc) {
+        String bodyText = doc.body().text();
         StringBuilder sb = new StringBuilder();
-        for (org.jsoup.nodes.Element el : doc.body().select("h1,h2,h3,h4,h5,h6,p,li,td,th,blockquote,section,article")) {
+        for (org.jsoup.nodes.Element el : doc.body().select("h1,h2,h3,h4,h5,h6,p,li,td,th,blockquote,section,article,div")) {
             String text = el.ownText().trim();
             if (!text.isEmpty()) sb.append(text).append("\n\n");
         }
         String result = sb.toString().trim();
-        return result.isEmpty() ? doc.body().text() : result;
+        // If structured extraction captured less than 60% of body text, use body text directly
+        if (result.length() < bodyText.length() * 0.6) {
+            return bodyText;
+        }
+        return result.isEmpty() ? bodyText : result;
     }
 
     private String extractWithPlaywright(String url) {
@@ -62,6 +67,7 @@ public class TextExtractor {
             page.navigate(url, new Page.NavigateOptions().setTimeout(20_000));
             page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE,
                     new Page.WaitForLoadStateOptions().setTimeout(15_000));
+            scrollToRevealLazyContent(page);
             String html = page.content();
             browser.close();
             Document doc = Jsoup.parse(html);
@@ -70,6 +76,23 @@ public class TextExtractor {
         } catch (Exception e) {
             log.error("Playwright failed for {}: {}", url, e.getMessage());
             throw new RuntimeException("Failed to extract content from URL: " + e.getMessage());
+        }
+    }
+
+    /** Scrolls incrementally to trigger Intersection Observer lazy-loaded sections */
+    private void scrollToRevealLazyContent(Page page) {
+        try {
+            long pageHeight = (long) page.evaluate("document.body.scrollHeight");
+            long step = 600;
+            for (long y = 0; y < pageHeight; y += step) {
+                page.evaluate("window.scrollTo(0, " + y + ")");
+                page.waitForTimeout(120);
+            }
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
+            page.waitForTimeout(800);
+            page.evaluate("window.scrollTo(0, 0)");
+        } catch (Exception e) {
+            log.warn("Scroll failed: {}", e.getMessage());
         }
     }
 
@@ -90,24 +113,36 @@ public class TextExtractor {
         StringBuilder combined = new StringBuilder();
         int pages = 0;
 
-        // Single Playwright browser session — renders JS so SPA links are visible
+        // Restart browser every N pages to prevent memory exhaustion on low-RAM servers
+        final int BROWSER_RESTART_INTERVAL = 10;
+
         try (Playwright playwright = Playwright.create()) {
             Browser browser = playwright.chromium().launch(
                     new BrowserType.LaunchOptions().setHeadless(true));
             Page page = browser.newPage();
+            int pagesSinceBrowserStart = 0;
 
             while (!queue.isEmpty() && pages < maxPages) {
                 String url = queue.poll();
                 if (visited.contains(url)) continue;
                 visited.add(url);
 
+                // Restart browser periodically to free memory
+                if (pagesSinceBrowserStart >= BROWSER_RESTART_INTERVAL) {
+                    log.info("Restarting Playwright browser to free memory (after {} pages)", pagesSinceBrowserStart);
+                    try { browser.close(); } catch (Exception ignored) {}
+                    browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+                    page = browser.newPage();
+                    pagesSinceBrowserStart = 0;
+                }
+
                 log.info("Crawling page {}/{}: {}", pages + 1, maxPages, url);
                 try {
                     page.navigate(url, new Page.NavigateOptions().setTimeout(20_000));
                     page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE,
                             new Page.WaitForLoadStateOptions().setTimeout(15_000));
-                    // Extra wait for API-driven SPAs to finish rendering data
-                    page.waitForTimeout(2000);
+                    // Scroll to trigger lazy-loaded / intersection-observer sections
+                    scrollToRevealLazyContent(page);
 
                     // Extract content from fully-rendered DOM
                     String html = page.content();
@@ -127,6 +162,7 @@ public class TextExtractor {
                                 .append(text).append("\n\n");
                         pages++;
                     }
+                    pagesSinceBrowserStart++;
 
                     // Discover links from fully-rendered DOM (catches SPA router links)
                     if (pages < maxPages) {
@@ -152,9 +188,10 @@ public class TextExtractor {
                     }
                 } catch (Exception e) {
                     log.warn("Failed to crawl {}: {}", url, e.getMessage());
+                    pagesSinceBrowserStart++; // count failed pages too to avoid infinite loop
                 }
             }
-            browser.close();
+            try { browser.close(); } catch (Exception ignored) {}
         }
 
         log.info("Crawled {} pages from {}", pages, startUrl);

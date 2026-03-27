@@ -119,7 +119,7 @@ public class KnowledgeController {
         UUID tenantId = TenantContext.getTenantId();
         validateChatbot(chatbotId, tenantId);
 
-        String url = body.get("url");
+        String url = body.get("url") != null ? body.get("url").trim() : null;
         int maxPages = 1;
         try { maxPages = Math.min(50, Math.max(1, Integer.parseInt(body.getOrDefault("maxPages", "1")))); }
         catch (NumberFormatException ignored) {}
@@ -139,6 +139,7 @@ public class KnowledgeController {
     }
 
     @DeleteMapping("/{sourceId}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<ApiResponse<Void>> deleteSource(@PathVariable UUID chatbotId,
                                                            @PathVariable UUID sourceId) {
         UUID tenantId = TenantContext.getTenantId();
