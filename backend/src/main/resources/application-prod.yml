@@ -1,0 +1,11 @@
+server:
+  error:
+    include-message: never
+    include-binding-errors: never
+
+logging:
+  level:
+    com.infectbyte.botforge: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate: WARN
