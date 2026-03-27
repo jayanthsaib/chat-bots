@@ -37,6 +37,15 @@ export class AuthService {
     return localStorage.getItem(this.TOKEN_KEY);
   }
 
+  getRefreshToken(): string | null {
+    return localStorage.getItem(this.REFRESH_KEY);
+  }
+
+  refresh(): Observable<ApiResponse<AuthResponse>> {
+    return this.http.post<ApiResponse<AuthResponse>>(`${environment.apiUrl}/auth/refresh`, { refreshToken: this.getRefreshToken() })
+      .pipe(tap(res => res.success && this.storeAuth(res.data)));
+  }
+
   isLoggedIn(): boolean {
     return !!this.getToken();
   }

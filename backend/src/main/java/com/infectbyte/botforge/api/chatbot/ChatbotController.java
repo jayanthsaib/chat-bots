@@ -55,6 +55,12 @@ public class ChatbotController {
         return ResponseEntity.ok(ApiResponse.ok(chatbotService.generateEmbedCode(id, tenantId)));
     }
 
+    @GetMapping("/{id}/unanswered")
+    public ResponseEntity<ApiResponse<List<UnansweredQuestionDto>>> getUnanswered(@PathVariable UUID id) {
+        UUID tenantId = TenantContext.getTenantId();
+        return ResponseEntity.ok(ApiResponse.ok(chatbotService.getUnansweredQuestions(id, tenantId)));
+    }
+
     @PostMapping("/{id}/api-key")
     public ResponseEntity<ApiResponse<ApiKeyResponse>> generateApiKey(@PathVariable UUID id,
                                                                        @RequestParam(defaultValue = "Default") String label) {

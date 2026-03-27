@@ -199,6 +199,30 @@ import { Chatbot, KnowledgeSource } from '../../../core/models/api.models';
             <button mat-raised-button color="primary" (click)="saveSettings()">Save Settings</button>
           </div>
         </mat-tab>
+
+        <!-- Unanswered Questions Tab -->
+        <mat-tab label="Unanswered Questions">
+          <div style="padding:24px 0">
+            <p style="color:#6b7280;font-size:14px;margin-bottom:16px">
+              Questions where the bot had no relevant knowledge to answer from.
+              Use these to improve your knowledge base.
+            </p>
+            <div *ngIf="unanswered.length === 0" style="text-align:center;padding:48px;color:#9ca3af">
+              <mat-icon style="font-size:48px;width:48px;height:48px">check_circle</mat-icon>
+              <p>No unanswered questions yet.</p>
+            </div>
+            <mat-card *ngFor="let q of unanswered" style="margin-bottom:12px;padding:16px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <mat-icon style="color:#ef4444;margin-top:2px;flex-shrink:0">help_outline</mat-icon>
+                <div style="flex:1">
+                  <div style="font-weight:600;color:#111827;margin-bottom:4px">{{ q.userQuestion }}</div>
+                  <div style="font-size:13px;color:#6b7280;margin-bottom:6px">{{ q.botResponse }}</div>
+                  <div style="font-size:11px;color:#9ca3af">{{ q.askedAt | date:'medium' }}</div>
+                </div>
+              </div>
+            </mat-card>
+          </div>
+        </mat-tab>
       </mat-tab-group>
     </div>
   `
@@ -226,6 +250,7 @@ export class ChatbotDetailComponent implements OnInit, AfterViewChecked {
   testLoading = false;
   private testSessionId = '';
   private shouldScroll = false;
+  unanswered: { userQuestion: string; botResponse: string; askedAt: string }[] = [];
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -233,6 +258,7 @@ export class ChatbotDetailComponent implements OnInit, AfterViewChecked {
       this.chatbot = r.data;
       this.loadSources();
       this.loadEmbedCode();
+      this.loadUnanswered();
     });
   }
 
@@ -242,6 +268,10 @@ export class ChatbotDetailComponent implements OnInit, AfterViewChecked {
 
   loadEmbedCode(): void {
     this.api.getEmbedCode(this.chatbot!.id).subscribe(r => this.embedCode = r.data?.embedCode || '');
+  }
+
+  loadUnanswered(): void {
+    this.api.getUnansweredQuestions(this.chatbot!.id).subscribe(r => this.unanswered = r.data || []);
   }
 
   generateApiKey(): void {

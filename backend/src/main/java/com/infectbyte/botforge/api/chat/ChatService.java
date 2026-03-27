@@ -66,7 +66,7 @@ public class ChatService {
         conversationRepository.save(conversation);
 
         Chatbot chatbot = chatbotRepository.findById(chatbotId).orElseThrow();
-        return new StartChatResponse(sessionId, chatbot.getWelcomeMessage(), chatbotId);
+        return new StartChatResponse(sessionId, chatbot.getWelcomeMessage(), chatbotId, chatbot.getName());
     }
 
     public Flux<String> streamResponse(UUID tenantId, ChatMessageRequest request) {
@@ -103,7 +103,10 @@ public class ChatService {
         java.util.Collections.reverse(history);
 
         // Build RAG prompt
-        String systemPrompt = ragService.buildSystemPrompt(chatbotId, tenantId, userMessage, chatbot);
+        RAGService.RAGResult ragResult = ragService.buildPrompt(chatbotId, tenantId, userMessage, chatbot);
+        String systemPrompt = ragResult.systemPrompt();
+        boolean hasKnowledge = ragResult.hasKnowledge();
+        List<RAGService.SourceCitation> citations = ragResult.sources();
         List<OpenAIClient.ChatMessage> messages = ragService.buildMessageHistory(history);
         // Remove last user msg since we add it separately
         if (!messages.isEmpty() && messages.get(messages.size() - 1).role().equals("user")) {
@@ -114,12 +117,13 @@ public class ChatService {
 
         AtomicReference<StringBuilder> responseBuffer = new AtomicReference<>(new StringBuilder());
         AtomicLong startTime = new AtomicLong(System.currentTimeMillis());
+        boolean answered = hasKnowledge;
 
         // Determine if lead prompt should be shown (after 3 messages)
         long msgCount = messageRepository.findAllByConversationIdOrderByCreatedAtAsc(conversation.getId()).size();
         boolean shouldPromptLead = chatbot.getCollectLead() &&
                 "after_3_messages".equals(chatbot.getLeadTrigger()) &&
-                msgCount >= 3 &&
+                msgCount == 3 &&
                 !leadRepository.findByConversationId(conversation.getId()).isPresent();
 
         List<OpenAIClient.ChatMessage> finalMessages = messages;
@@ -137,6 +141,10 @@ public class ChatService {
                     String fullResponse = responseBuffer.get().toString();
                     int latencyMs = (int) (System.currentTimeMillis() - startTime.get());
 
+                    List<String> sourceUrls = citations.stream()
+                            .map(c -> c.title() + "|" + c.url())
+                            .collect(java.util.stream.Collectors.toList());
+
                     Message assistantMsg = Message.builder()
                             .tenantId(tenantId)
                             .conversationId(conversation.getId())
@@ -144,14 +152,16 @@ public class ChatService {
                             .content(fullResponse)
                             .modelUsed("gpt-4o-mini")
                             .latencyMs(latencyMs)
+                            .answered(answered)
+                            .sources(sourceUrls.isEmpty() ? null : sourceUrls)
                             .build();
                     messageRepository.save(assistantMsg);
 
                     try {
                         return Flux.just(objectMapper.writeValueAsString(
-                                new DoneEvent("done", shouldPromptLead)));
+                                new DoneEvent("done", shouldPromptLead, citations)));
                     } catch (Exception e) {
-                        return Flux.just("{\"type\":\"done\",\"lead_prompt\":false}");
+                        return Flux.just("{\"type\":\"done\",\"lead_prompt\":false,\"sources\":[]}");
                     }
                 }))
                 .onErrorResume(e -> {
@@ -210,5 +220,5 @@ public class ChatService {
     }
 
     public record TokenEvent(String token) {}
-    public record DoneEvent(String type, boolean lead_prompt) {}
+    public record DoneEvent(String type, boolean lead_prompt, List<RAGService.SourceCitation> sources) {}
 }

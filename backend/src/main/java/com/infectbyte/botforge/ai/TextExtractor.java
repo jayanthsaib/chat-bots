@@ -106,6 +106,8 @@ public class TextExtractor {
                     page.navigate(url, new Page.NavigateOptions().setTimeout(20_000));
                     page.waitForLoadState(com.microsoft.playwright.options.LoadState.NETWORKIDLE,
                             new Page.WaitForLoadStateOptions().setTimeout(15_000));
+                    // Extra wait for API-driven SPAs to finish rendering data
+                    page.waitForTimeout(2000);
 
                     // Extract content from fully-rendered DOM
                     String html = page.content();
@@ -113,6 +115,13 @@ public class TextExtractor {
                     doc.select("nav, header, footer, script, style, [class*=nav], [class*=menu]").remove();
                     String text = extractStructuredText(doc);
 
+                    // Log a snippet to diagnose empty pages
+                    String bodyText = Jsoup.parse(page.content()).body().text();
+                    log.info("Extracted {} chars (body:{} chars) from {}",
+                        text == null ? 0 : text.length(), bodyText.length(), url);
+                    if (bodyText.length() > 0 && (text == null || text.isBlank())) {
+                        log.debug("Body snippet for {}: {}", url, bodyText.substring(0, Math.min(200, bodyText.length())));
+                    }
                     if (text != null && !text.isBlank()) {
                         combined.append("=== ").append(url).append(" ===\n")
                                 .append(text).append("\n\n");

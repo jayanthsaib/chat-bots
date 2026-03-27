@@ -40,6 +40,15 @@ export class ApiService {
     return this.http.post<ApiResponse<any>>(`${this.base}/chatbots/${chatbotId}/api-key?label=${label}`, {});
   }
 
+  getUnansweredQuestions(chatbotId: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.base}/chatbots/${chatbotId}/unanswered`);
+  }
+
+  // Analytics
+  getAnalyticsOverview(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.base}/analytics/overview`);
+  }
+
   // Knowledge
   getKnowledgeSources(chatbotId: string): Observable<ApiResponse<KnowledgeSource[]>> {
     return this.http.get<ApiResponse<KnowledgeSource[]>>(`${this.base}/chatbots/${chatbotId}/knowledge`);

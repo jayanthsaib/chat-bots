@@ -4,11 +4,12 @@ import com.infectbyte.botforge.domain.chatbot.Chatbot;
 import com.infectbyte.botforge.domain.conversation.Message;
 import com.infectbyte.botforge.domain.knowledge.KnowledgeChunk;
 import com.infectbyte.botforge.domain.knowledge.KnowledgeChunkRepository;
+import com.infectbyte.botforge.domain.knowledge.KnowledgeSource;
+import com.infectbyte.botforge.domain.knowledge.KnowledgeSourceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -18,7 +19,10 @@ import java.util.stream.Collectors;
 @Slf4j
 public class RAGService {
 
+    private static final double SIMILARITY_THRESHOLD = 0.70;
+
     private final KnowledgeChunkRepository chunkRepository;
+    private final KnowledgeSourceRepository sourceRepository;
     private final EmbeddingService embeddingService;
 
     private static final String SYSTEM_PROMPT_TEMPLATE = """
@@ -46,21 +50,41 @@ public class RAGService {
             %s
             """;
 
-    public String buildSystemPrompt(UUID chatbotId, UUID tenantId, String userMessage,
-                                     Chatbot chatbot) {
+    public record SourceCitation(String title, String url) {}
+    public record RAGResult(String systemPrompt, boolean hasKnowledge, List<SourceCitation> sources) {}
+
+    public RAGResult buildPrompt(UUID chatbotId, UUID tenantId, String userMessage,
+                                  Chatbot chatbot) {
         // Embed user query
         float[] queryVector = embeddingService.embedQuery(userMessage);
         String vectorStr = toVectorString(queryVector);
 
-        // Find top-5 similar chunks
-        List<KnowledgeChunk> chunks = chunkRepository.findSimilarChunks(chatbotId, tenantId, vectorStr, 5);
+        // Find top-5 chunks with similarity >= threshold (filters out loosely-related chunks)
+        List<KnowledgeChunk> chunks = chunkRepository.findSimilarChunksAboveThreshold(
+                chatbotId, tenantId, vectorStr, 5, SIMILARITY_THRESHOLD);
+        log.info("RAG: found {} relevant chunks (threshold={}) for query: {}", chunks.size(), SIMILARITY_THRESHOLD, userMessage);
 
-        String context = chunks.isEmpty()
-                ? "[NO KNOWLEDGE AVAILABLE — You have no information to answer this question. You MUST say you don't have that information.]"
-                : chunks.stream().map(KnowledgeChunk::getChunkText)
-                        .collect(Collectors.joining("\n\n---\n\n"));
+        boolean hasKnowledge = !chunks.isEmpty();
+        String context = hasKnowledge
+                ? chunks.stream().map(KnowledgeChunk::getChunkText)
+                        .collect(Collectors.joining("\n\n---\n\n"))
+                : "[NO KNOWLEDGE AVAILABLE — You have no information to answer this question. You MUST say you don't have that information.]";
 
-        return SYSTEM_PROMPT_TEMPLATE.formatted(
+        // Build source citations from unique source IDs
+        List<SourceCitation> sources = hasKnowledge
+                ? chunks.stream()
+                        .map(KnowledgeChunk::getSourceId)
+                        .distinct()
+                        .map(sourceId -> sourceRepository.findById(sourceId).orElse(null))
+                        .filter(s -> s != null)
+                        .map(s -> new SourceCitation(
+                                s.getTitle() != null ? s.getTitle() : s.getSourceType(),
+                                s.getWebsiteUrl() != null ? s.getWebsiteUrl() : s.getFileUrl()))
+                        .filter(c -> c.url() != null)
+                        .collect(Collectors.toList())
+                : List.of();
+
+        String prompt = SYSTEM_PROMPT_TEMPLATE.formatted(
                 chatbot.getName(),
                 chatbot.getName(),
                 chatbot.getDescription() != null ? chatbot.getDescription() : "",
@@ -68,6 +92,7 @@ public class RAGService {
                 chatbot.getLanguage() != null ? chatbot.getLanguage() : "en",
                 context
         );
+        return new RAGResult(prompt, hasKnowledge, sources);
     }
 
     public List<OpenAIClient.ChatMessage> buildMessageHistory(List<Message> history) {

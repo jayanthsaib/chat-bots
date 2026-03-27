@@ -24,6 +24,21 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
             @Param("limit") int limit
     );
 
+    @Query(value = """
+            SELECT * FROM knowledge_chunks
+            WHERE chatbot_id = :chatbotId AND tenant_id = :tenantId
+              AND (1 - (embedding <=> CAST(:queryVector AS vector))) >= :threshold
+            ORDER BY embedding <=> CAST(:queryVector AS vector)
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<KnowledgeChunk> findSimilarChunksAboveThreshold(
+            @Param("chatbotId") UUID chatbotId,
+            @Param("tenantId") UUID tenantId,
+            @Param("queryVector") String queryVector,
+            @Param("limit") int limit,
+            @Param("threshold") double threshold
+    );
+
     void deleteBySourceId(UUID sourceId);
 
     long countByChatbotIdAndTenantId(UUID chatbotId, UUID tenantId);

@@ -47,6 +47,9 @@ public class Message {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<String> sources;
 
+    @Column(name = "answered")
+    private Boolean answered;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

@@ -32,7 +32,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String apiKeyHeader = request.getHeader("X-API-Key");
+        String xApiKey = request.getHeader("X-API-Key");
+        String authHeader = request.getHeader("Authorization");
+        String apiKeyHeader = xApiKey != null ? xApiKey
+                : (authHeader != null && authHeader.startsWith("Bearer bf_live_") ? authHeader.substring(7) : null);
 
         if (apiKeyHeader != null && apiKeyHeader.startsWith("bf_live_")) {
             // Find by prefix + hash match

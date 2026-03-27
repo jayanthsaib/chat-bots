@@ -6,6 +6,8 @@ import com.infectbyte.botforge.domain.apikey.ApiKey;
 import com.infectbyte.botforge.domain.apikey.ApiKeyRepository;
 import com.infectbyte.botforge.domain.chatbot.Chatbot;
 import com.infectbyte.botforge.domain.chatbot.ChatbotRepository;
+import com.infectbyte.botforge.domain.conversation.Message;
+import com.infectbyte.botforge.domain.conversation.MessageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,9 +27,10 @@ public class ChatbotService {
     private final ApiKeyRepository apiKeyRepository;
     private final PasswordEncoder passwordEncoder;
     private final UsageLimitService usageLimitService;
+    private final MessageRepository messageRepository;
 
-    @Value("${server.port:8080}")
-    private String serverPort;
+    @Value("${app.public-url:https://bot.wexlai.com}")
+    private String publicUrl;
 
     public List<ChatbotDto> listChatbots(UUID tenantId) {
         return chatbotRepository.findAllByTenantId(tenantId).stream()
@@ -101,8 +104,8 @@ public class ChatbotService {
                     botId: "%s"
                   };
                 </script>
-                <script src="http://localhost:%s/widget/botforge-widget.min.js" async></script>
-                """.formatted(apiKey, id, serverPort);
+                <script src="%s/widget/botforge-widget.js" async></script>
+                """.formatted(apiKey, id, publicUrl);
 
         return new EmbedCodeResponse(id, chatbot.getName(), embedCode);
     }
@@ -129,6 +132,20 @@ public class ChatbotService {
         apiKeyRepository.save(apiKey);
 
         return new ApiKeyResponse(apiKey.getId(), plainKey, prefix, label);
+    }
+
+    public List<UnansweredQuestionDto> getUnansweredQuestions(UUID chatbotId, UUID tenantId) {
+        chatbotRepository.findByIdAndTenantId(chatbotId, tenantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Chatbot", chatbotId));
+        return messageRepository.findUnansweredByBotId(chatbotId, tenantId).stream()
+                .map(m -> {
+                    String userQ = messageRepository
+                            .findLastUserMessageBefore(m.getConversationId(), m.getCreatedAt())
+                            .map(Message::getContent)
+                            .orElse("(unknown)");
+                    return new UnansweredQuestionDto(userQ, m.getContent(), m.getCreatedAt());
+                })
+                .toList();
     }
 
     private ChatbotDto toDto(Chatbot c) {
