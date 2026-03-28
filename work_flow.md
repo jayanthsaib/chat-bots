@@ -1,8 +1,8 @@
-# BotForge — Project Working Flow
+# Qbot — Project Working Flow
 
 ## 1. Overview
 
-**BotForge** is a multi-tenant SaaS platform that lets businesses build, train, and deploy AI-powered chatbots on their websites. It supports lead capture, conversation management, and a knowledge base trained via RAG (Retrieval Augmented Generation).
+**Qbot** is a multi-tenant SaaS platform that lets businesses build, train, and deploy AI-powered chatbots on their websites. It supports lead capture, conversation management, and a knowledge base trained via RAG (Retrieval Augmented Generation).
 
 ### Tech Stack
 
@@ -203,7 +203,7 @@ GET /api/v1/chatbots/{id}/embed
 
 Returns HTML snippet:
   <script>
-    window.BotForgeConfig = {
+    window.QbotConfig = {
       apiKey: "bf_live_xxx...",
       botId: "uuid"
     };
@@ -224,7 +224,7 @@ Visitor loads website with embed code
   ↓
 Widget JS loads from /widget/botforge-widget.min.js
   ↓
-Widget reads window.BotForgeConfig (apiKey)
+Widget reads window.QbotConfig (apiKey)
   ↓
 Checks localStorage for existing sessionId
   ↓

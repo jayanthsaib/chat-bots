@@ -1,12 +1,12 @@
-# BotForge — System Architecture
+# Qbot — System Architecture
 
-This document explains how BotForge is built, how its components fit together, and how data flows through the system.
+This document explains how Qbot is built, how its components fit together, and how data flows through the system.
 
 ---
 
 ## High-Level Overview
 
-BotForge is a **multi-tenant SaaS platform**. Each business that registers gets their own isolated tenant. Their chatbots, knowledge, conversations, and leads are all scoped to their tenant ID.
+Qbot is a **multi-tenant SaaS platform**. Each business that registers gets their own isolated tenant. Their chatbots, knowledge, conversations, and leads are all scoped to their tenant ID.
 
 ```
 ┌─────────────────────────────────────────────────────────┐

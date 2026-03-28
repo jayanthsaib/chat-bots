@@ -1,7 +1,7 @@
 {
-  "name": "botforge-widget",
+  "name": "qbot-widget",
   "version": "1.0.0",
-  "description": "Embeddable AI chat widget for BotForge",
+  "description": "Embeddable AI chat widget for Qbot",
   "scripts": {
     "build": "esbuild src/widget.ts --bundle --minify --outfile=../backend/src/main/resources/static/widget/botforge-widget.min.js --platform=browser --target=es2017",
     "build:dev": "esbuild src/widget.ts --bundle --sourcemap --outfile=../backend/src/main/resources/static/widget/botforge-widget.js --platform=browser --target=es2017",

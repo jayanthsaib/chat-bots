@@ -1,4 +1,4 @@
-# BotForge — API Reference
+# Qbot — API Reference
 
 All endpoints are under the base path `/api/v1`.
 

@@ -1,6 +1,6 @@
-# BotForge — Deployment Guide
+# Qbot — Deployment Guide
 
-This document covers how BotForge is deployed on AWS EC2 and how to update or maintain it.
+This document covers how Qbot is deployed on AWS EC2 and how to update or maintain it.
 
 ---
 
@@ -12,14 +12,14 @@ This document covers how BotForge is deployed on AWS EC2 and how to update or ma
 | **OS** | Ubuntu 24.04 LTS |
 | **Region** | ap-south-1 (Mumbai) |
 | **Public IP** | 13.233.44.37 |
-| **BotForge URL** | http://13.233.44.37:8444 |
+| **Qbot URL** | http://13.233.44.37:8444 |
 
 ### Services on the server
 
 | Service | Port | Managed by |
 |---|---|---|
 | stock-agent (Spring Boot) | 8080 | systemd |
-| **BotForge (Spring Boot)** | **8081** | **systemd** |
+| **Qbot (Spring Boot)** | **8081** | **systemd** |
 | PostgreSQL 16 | 5432 | systemd |
 | Redis 7 | 6379 | systemd |
 | Nginx | 80, 443, 8444 | systemd |
@@ -31,13 +31,13 @@ This document covers how BotForge is deployed on AWS EC2 and how to update or ma
 ### Nginx routing
 
 - **Port 80/443** → stock-agent (existing service, unchanged)
-- **Port 8444** → BotForge (Angular static files + API proxy)
+- **Port 8444** → Qbot (Angular static files + API proxy)
 
-The BotForge Nginx block serves Angular's `index.html` for all routes (SPA routing) and proxies `/api/` to the Spring Boot backend on port 8081 with SSE buffering disabled.
+The Qbot Nginx block serves Angular's `index.html` for all routes (SPA routing) and proxies `/api/` to the Spring Boot backend on port 8081 with SSE buffering disabled.
 
 Config file: `/etc/nginx/sites-available/botforge`
 
-### BotForge systemd service
+### Qbot systemd service
 
 The Spring Boot JAR runs as a systemd service so it:
 - Starts automatically on server reboot
@@ -158,7 +158,7 @@ chmod 600 ~/botforge/botforge.env
 ```bash
 sudo tee /etc/systemd/system/botforge.service << 'EOF'
 [Unit]
-Description=BotForge AI Chatbot Platform
+Description=Qbot AI Chatbot Platform
 After=network.target postgresql.service redis-server.service
 
 [Service]
@@ -262,7 +262,7 @@ The following ports must be open in the AWS security group:
 | 22 | TCP | Your IP | SSH access |
 | 80 | TCP | 0.0.0.0/0 | HTTP (stock-agent redirect) |
 | 443 | TCP | 0.0.0.0/0 | HTTPS (stock-agent) |
-| 8444 | TCP | 0.0.0.0/0 | BotForge dashboard + API |
+| 8444 | TCP | 0.0.0.0/0 | Qbot dashboard + API |
 
 ---
 

@@ -14,8 +14,8 @@
     <groupId>com.infectbyte</groupId>
     <artifactId>botforge</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>botforge</name>
-    <description>AI Chatbot SaaS Platform</description>
+    <name>qbot</name>
+    <description>Qbot — AI Chatbot SaaS Platform</description>
 
     <properties>
         <java.version>21</java.version>

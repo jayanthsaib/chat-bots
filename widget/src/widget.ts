@@ -1,19 +1,19 @@
 /**
- * BotForge Embeddable Chat Widget
+ * Qbot Embeddable Chat Widget
  * Usage:
  *   <script>
- *     window.BotForgeConfig = { apiKey: "bf_live_xxx", botId: "uuid" };
+ *     window.QbotConfig = { apiKey: "bf_live_xxx", botId: "uuid" };
  *   </script>
  *   <script src="http://yourserver/widget/botforge-widget.min.js" async></script>
  */
 
 declare global {
   interface Window {
-    BotForgeConfig?: BotForgeConfig;
+    QbotConfig: QbotConfig;
   }
 }
 
-interface BotForgeConfig {
+interface QbotConfig {
   apiKey: string;
   botId?: string;
   baseUrl?: string;
@@ -25,8 +25,8 @@ interface Message {
   timestamp: Date;
 }
 
-class BotForgeWidget {
-  private config: BotForgeConfig;
+class QbotWidget {
+  private config: QbotConfig;
   private sessionId: string | null = null;
   private messages: Message[] = [];
   private isOpen: boolean = false;
@@ -42,7 +42,7 @@ class BotForgeWidget {
   private inputEl: HTMLInputElement | null = null;
   private bubble: HTMLElement | null = null;
 
-  constructor(config: BotForgeConfig) {
+  constructor(config: QbotConfig) {
     this.config = {
       baseUrl: window.location.origin,
       ...config,
@@ -252,7 +252,7 @@ class BotForgeWidget {
         }
       }
     } catch (e) {
-      console.error('[BotForge] Failed to start session:', e);
+      console.error('[Qbot] Failed to start session:', e);
     }
   }
 
@@ -312,7 +312,7 @@ class BotForgeWidget {
       }
     } catch (e) {
       this.hideTyping();
-      console.error('[BotForge] Streaming error:', e);
+      console.error('[Qbot] Streaming error:', e);
     }
   }
 
@@ -368,7 +368,7 @@ class BotForgeWidget {
       form?.classList.remove('show');
       this.appendMessage('assistant', `Thanks ${name || ''}! We'll be in touch at ${email}. Now, how else can I help?`);
     } catch (e) {
-      console.error('[BotForge] Lead submission error:', e);
+      console.error('[Qbot] Lead submission error:', e);
     }
   }
 
@@ -381,14 +381,14 @@ class BotForgeWidget {
 
 // Auto-initialize when script loads
 (function () {
-  const config = (window as any).BotForgeConfig as BotForgeConfig;
+  const config = (window as any).QbotConfig as QbotConfig;
   if (!config || !config.apiKey) {
-    console.warn('[BotForge] No config found. Add window.BotForgeConfig before loading the widget.');
+    console.warn('[Qbot] No config found. Add window.QbotConfig before loading the widget.');
     return;
   }
 
   function init() {
-    const widget = new BotForgeWidget(config);
+    const widget = new QbotWidget(config);
     widget.init().catch(console.error);
   }
 

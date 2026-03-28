@@ -1,6 +1,6 @@
-# BotForge — AI Chatbot SaaS Platform
+# Qbot — AI Chatbot SaaS Platform
 
-BotForge lets businesses create AI-powered chatbots trained on their own content (PDFs, websites, FAQs, text). Each chatbot can be embedded on any website via a JavaScript widget. The platform is multi-tenant — every user gets their own isolated workspace.
+Qbot lets businesses create AI-powered chatbots trained on their own content (PDFs, websites, FAQs, text). Each chatbot can be embedded on any website via a JavaScript widget. The platform is multi-tenant — every user gets their own isolated workspace.
 
 ---
 
@@ -109,7 +109,7 @@ chat-bots/
 
 ## Deployment
 
-BotForge runs on AWS EC2 (`m5a.large`, Ubuntu 24.04).
+Qbot runs on AWS EC2 (`m5a.large`, Ubuntu 24.04).
 
 - **Dashboard**: `http://13.233.44.37:8444`
 - **API Base**: `http://13.233.44.37:8444/api/v1`

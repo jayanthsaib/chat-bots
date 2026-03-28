@@ -1,6 +1,6 @@
-# BotForge — Development Guide
+# Qbot — Development Guide
 
-This guide covers everything you need to develop BotForge locally — setup, project conventions, how to add new features, and the development workflow.
+This guide covers everything you need to develop Qbot locally — setup, project conventions, how to add new features, and the development workflow.
 
 ---
 
@@ -174,7 +174,7 @@ npm run build -- --configuration production
 
 ## Database Migrations
 
-BotForge uses **Flyway** for database migrations. Flyway runs automatically when the Spring Boot app starts and applies any new migration files.
+Qbot uses **Flyway** for database migrations. Flyway runs automatically when the Spring Boot app starts and applies any new migration files.
 
 **Rules:**
 - Migration files live in `backend/src/main/resources/db/migration/`
