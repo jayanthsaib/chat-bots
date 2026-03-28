@@ -30,7 +30,7 @@ const NAV = [
           <div class="logo-icon">
             <mat-icon>smart_toy</mat-icon>
           </div>
-          <span class="logo-text">BotForge</span>
+          <span class="logo-text">Qbot</span>
         </div>
 
         <!-- Nav -->

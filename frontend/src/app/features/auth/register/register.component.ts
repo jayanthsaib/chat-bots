@@ -16,7 +16,7 @@ import { AuthService } from '../../../core/services/auth.service';
   template: `
     <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f9fafb;">
       <mat-card style="width:100%;max-width:440px;padding:32px;">
-        <h1 style="text-align:center;color:#4F46E5;margin:0 0 8px">BotForge</h1>
+        <h1 style="text-align:center;color:#4F46E5;margin:0 0 8px">Qbot</h1>
         <p style="text-align:center;color:#6b7280;margin:0 0 32px">Create your free account</p>
 
         <form [formGroup]="form" (ngSubmit)="onSubmit()">

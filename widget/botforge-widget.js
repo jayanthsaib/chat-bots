@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  var config = window.BotForgeConfig || {};
+  var config = window.QbotConfig || window.BotForgeConfig || {};
   var API_KEY = config.apiKey || '';
   var BOT_ID = config.botId || '';
   var BASE_URL = (config.baseUrl || '').replace(/\/$/, '');
@@ -13,7 +13,7 @@
   var VISITOR_KEY = 'bf_visitor_' + BOT_ID;
 
   if (!API_KEY || !BOT_ID) {
-    console.warn('[BotForge] Missing apiKey or botId in window.BotForgeConfig');
+    console.warn('[Qbot] Missing apiKey or botId in window.QbotConfig');
     return;
   }
 

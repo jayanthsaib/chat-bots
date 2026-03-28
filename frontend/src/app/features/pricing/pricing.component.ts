@@ -339,7 +339,7 @@ export class PricingComponent implements OnInit {
     const options = {
       key: keyId,
       subscription_id: subscriptionId,
-      name: 'BotForge',
+      name: 'Qbot',
       description: `${plan.displayName} Plan`,
       handler: (response: any) => {
         this.snack.open(
